@@ -2,6 +2,9 @@ package it.fi.meucci;
 
 import java.net.*;
 import java.util.ArrayList;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.*;
 
 class ServerThread extends Thread {
@@ -12,7 +15,6 @@ class ServerThread extends Thread {
     String stringaModificata = null;
     BufferedReader inDalCliente;
     DataOutputStream outVersoCliente;
-    ArrayList<Socket> socketConnessi = new ArrayList<>();
 
     public ServerThread(Socket socket) {
         this.client = socket;
@@ -30,33 +32,38 @@ class ServerThread extends Thread {
     public void comunica() throws Exception {
         inDalCliente = new BufferedReader(new InputStreamReader(client.getInputStream()));
         outVersoCliente = new DataOutputStream(client.getOutputStream());
-        socketConnessi.add(client);
+        ObjectMapper message = new ObjectMapper();
         for (;;) {
             stringRicevuta = inDalCliente.readLine();
-            if (stringRicevuta.equals("fine")) {
-                outVersoCliente.writeBytes(stringRicevuta + "server in chiusura" + "\n");
-                System.out.println("Echo sul server in chiusura: " + stringRicevuta);
-                break;
-            }
+            Messaggo messaggio = message.readValue(stringRicevuta, Messaggo.class); 
 
-            else if(stringRicevuta.equals("chiudi tutti i socket")) {
-                this.chiusuraCompleta();
+            if (messaggio.getLista_biglietti().size() == 0){
+                Messaggo m = new Messaggo(ServerStr.biglietti);
+                outVersoCliente.writeBytes(message.writeValueAsString(m) + "\n");
             }
 
             else {
-                outVersoCliente.writeBytes(stringRicevuta + "(ricevuta e inviata nuovamente)" + "\n");
-                System.out.println("6 echo sul server: " + stringRicevuta);
-            }
+
+                ArrayList<Biglietto> biglietti_acquistati = new ArrayList<>();
+
+                for (int i = 0; i < messaggio.getLista_biglietti().size(); i++) {
+                    for (int j = 0; j < ServerStr.biglietti.size(); j++) {
+                        if (messaggio.getLista_biglietti().get(i).id == ServerStr.biglietti.get(j).id){
+                            biglietti_acquistati.add(messaggio.getLista_biglietti().get(i));
+                            ServerStr.biglietti.remove(j);
+                            j--;
+                        }
+                    }
+                }
+
+                Messaggo messagio = new Messaggo(biglietti_acquistati);
+                outVersoCliente.writeBytes(message.writeValueAsString(messagio) + "\n");
         }
         outVersoCliente.close();
         inDalCliente.close();
         System.out.println("chiusura socket" + client);
         client.close();
     }
+}
 
-    public void chiusuraCompleta() throws IOException {
-        for(int i=0; i<socketConnessi.size(); i++){
-            socketConnessi.get(i).close();   
-        }
-    }
 }

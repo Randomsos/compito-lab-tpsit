@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 public class ClientStr {
     String nomeServer="localhost";
@@ -14,7 +15,7 @@ public class ClientStr {
     String stringaRicevutaDalServer;
     DataOutputStream outVersoServer;
     BufferedReader inDalSever;
-    ArrayList<BigliettoCLient> bigliettiSelezionati = new ArrayList();
+
 
     public Socket connetti(){
         System.out.println("2 CLIENT partito in esecuzione: ");
@@ -41,13 +42,25 @@ public class ClientStr {
     public void comunica(){
         try{
             for(;;){
-                System.out.println("4 inserisci la stringa da trasmettere dal server: "+'\n');
+                
+                //serializzazione della lisa e invio
+                ObjectMapper lista = new ObjectMapper();
+                ArrayList<Biglietto> bigliettiSelezionati = new ArrayList<Biglietto>();
+                Messago listaVuota = new Messago(bigliettiSelezionati);
+                outVersoServer.writeBytes(lista.writeValueAsString(listaVuota) + "\n");
+                
+                String bigliettiDisponibili = inDalSever.readLine();
+                Messago messaggio = lista.readValue(bigliettiDisponibili, Messago.class);
+
                 stringaUtente = tastiera.readLine();
-                System.out.println("5 invio la stringa al server");
                 outVersoServer.writeBytes(stringaUtente+'\n');
 
                 stringaRicevutaDalServer= inDalSever.readLine();
-                System.out.println("8 risposta del server" + '\n'+stringaRicevutaDalServer);
+
+                System.out.println("Biglietti disponibili:");
+                for (int i = 0; i < messaggio.getSize(); i++) {
+                System.out.println("ID: " + messaggio.biglietti.get(i).getId() + " - " + messaggio.biglietti.get(i).getPosto());
+            }
             }
             //System.out.println("9 CLIENT: termina nelaborazione e chiude connessione");
             //miosocket.close();
@@ -58,12 +71,6 @@ public class ClientStr {
             System.out.println("Errore durante la comunicazione");
             System.exit(1);
         }
-        }
-
-        void invaLista () {
-            XmlMapper xmlMapper = new XmlMapper();
-            String xml = xmlMapper.writeValueAsBytes(new BigliettoCLient());
-            assertNotNull(xml);
         }
 
 }
